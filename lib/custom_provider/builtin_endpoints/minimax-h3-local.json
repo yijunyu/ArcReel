@@ -1,0 +1,53 @@
+{
+  "kind": "declarative",
+  "schema_version": "1.0.0",
+  "meta": {
+    "name": "MiniMax H3 Local GPU",
+    "author": "ArcReel",
+    "version": "1.0.0",
+    "hints": {"suggested_models": [{"id": "MiniMax-H3-Local"}]}
+  },
+  "auth": {},
+  "inputs": {},
+  "enum_maps": {"resolution": {"480p": "480P", "768p": "768P", "2k": "2K"}},
+  "defaults": {"resolution": "768p"},
+  "submit": {
+    "method": "POST",
+    "url": "{{ base_url }}/v2/video_generation",
+    "body": {
+      "model": "{{ model }}",
+      "content": [
+        {"type": "text", "text": "{{ prompt }}"}
+      ],
+      "resolution": "{{ resolution }}",
+      "duration": "{{ duration }}",
+      "ratio": "{{ aspect_ratio }}"
+    },
+    "extract": {"task_id": ["$.task_id"], "error": ["$.base_resp.status_msg"]}
+  },
+  "poll": {
+    "method": "GET",
+    "url": "{{ base_url }}/v2/query/video_generation/{{ task_id }}",
+    "expire_on_404": false,
+    "extract": {
+      "status": ["$.task.status"],
+      "video_url": ["$.task.content.url"],
+      "error": ["$.task.error", "$.task.status_msg", "$.base_resp.status_msg"],
+      "failure": ["$[?@.status_code && @.status_code != 0].status_msg"]
+    }
+  },
+  "status_map": {
+    "queued": "queued",
+    "running": "running",
+    "succeeded": "succeeded",
+    "failed": "failed",
+    "cancelled": "failed"
+  },
+  "capabilities": {
+    "first_frame": false,
+    "last_frame": false,
+    "max_reference_images": 0,
+    "max_prompt_chars": 7000,
+    "audio_track": "always_on"
+  }
+}
