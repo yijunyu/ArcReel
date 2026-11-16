@@ -26,6 +26,7 @@ from arcreel_market_core.video_backend_contract import (
     VideoGenerationRequest,
     VideoGenerationResult,
 )
+from lib.backends.video_backends.metering import video_usage
 from lib.backends.video_backends.name_family import catalog_entry_of
 from lib.billing.metering import Usage
 
@@ -172,6 +173,17 @@ class H3LocalVideoBackend:
             duration_seconds=request.duration_seconds,
             seed=cfg.seed,
         )
+
+    @staticmethod
+    def metered_usage(
+        model_id: str,
+        request: VideoGenerationRequest,
+        result: VideoGenerationResult | None = None,
+        *,
+        entry: CatalogEntry | None = None,
+    ) -> Usage:
+        seconds = int(result.duration_seconds) if result else int(request.duration_seconds)
+        return video_usage(request, result, seconds=seconds, resolution="768p", audio=True)
 
     async def resume_video(self, job_id: str, request: VideoGenerationRequest) -> VideoGenerationResult:
         raise NotImplementedError("h3-local does not support resume — generation is synchronous")
