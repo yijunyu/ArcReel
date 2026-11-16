@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.37.1](https://github.com/ArcReel/ArcReel/compare/v0.37.0...v0.37.1) (2026-11-16)
+
+
+### 🐛 Bug 修复
+
+* **episode:** 修复规划失败提示的长文本溢出与详情对比度 ([dab0f6a](https://github.com/ArcReel/ArcReel/commit/dab0f6aad251f82c5216ad413121643e6dd80890)), closes [#3811](https://github.com/ArcReel/ArcReel/issues/3811)
+* **episode:** 重新规划因出错中断时，方案栏显示失败原因 ([224dbc5](https://github.com/ArcReel/ArcReel/commit/224dbc5bde3bd65b820d80ab87245a220bb243b9)), closes [#3811](https://github.com/ArcReel/ArcReel/issues/3811)
+* **script:** 文本任务失败摘要按界面语言显示，不再带出数据库原文与给 Agent 的工具报告 ([32b25a7](https://github.com/ArcReel/ArcReel/commit/32b25a751f9f34582388fbb4224cdfaab09775b3)), closes [#3809](https://github.com/ArcReel/ArcReel/issues/3809)
+* **script:** 草稿自定义校验说明随界面语言显示 ([ac70fbb](https://github.com/ArcReel/ArcReel/commit/ac70fbb54fa980f547fc5b40fc5c771b868c0bf7)), closes [#3815](https://github.com/ArcReel/ArcReel/issues/3815)
+
+
+### 📚 文档
+
+* **skills:** 发版亮点的升级提示改为列表后单列 ([#3845](https://github.com/ArcReel/ArcReel/issues/3845)) ([60e9842](https://github.com/ArcReel/ArcReel/commit/60e9842ac5529e08e4fe5ea759313378aac75850))
+
 ## [0.37.0](https://github.com/ArcReel/ArcReel/compare/v0.36.0...v0.37.0) (2026-11-16)
 
 
