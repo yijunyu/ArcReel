@@ -52,12 +52,13 @@ def h3_generate(host: str, shot: dict, preset: str, seed: int) -> str:
     work = f"arcreel_{shot['id']}"
     remote_output = f"/data/h3/runs/{work}/output.mp4"
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  Generating {shot['id']} via h3 CLI on {host}")
     print(f"  preset={preset}  seed={seed}  work={work}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     import shlex
+
     remote_cmd = (
         f"H3_SNAPSHOT=/data/h3/bf16/snapshot "
         f"HF_HOME=/data/h3/hf "
@@ -84,7 +85,7 @@ def h3_generate(host: str, shot: dict, preset: str, seed: int) -> str:
 def download_clip(host: str, remote_path: str, local_path: Path) -> None:
     """Download a clip from the remote host via scp."""
     subprocess.run(
-        ["scp", f"{host}:{remote_path}", str(local_path)],
+        ["scp", f"{host}:{remote_path}", str(local_path)],  # noqa: S607
         check=True,
     )
     print(f"  Downloaded: {local_path} ({local_path.stat().st_size / 1024:.0f} KiB)")
@@ -94,20 +95,33 @@ def concat_clips(paths: list[Path], output: Path) -> None:
     """Concatenate mp4 clips using ffmpeg."""
     import tempfile
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
         for p in paths:
             f.write(f"file '{p.resolve()}'\n")
         concat_file = f.name
 
     try:
         subprocess.run(
-            ["ffmpeg", "-y", "-f", "concat", "-safe", "0",
-             "-i", concat_file, "-c", "copy", str(output)],
-            check=True, capture_output=True,
+            [  # noqa: S607
+                "ffmpeg",
+                "-y",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                concat_file,
+                "-c",
+                "copy",
+                str(output),
+            ],
+            check=True,
+            capture_output=True,
         )
     except FileNotFoundError:
         print("ffmpeg not found — using last clip as output")
         import shutil
+
         shutil.copy2(paths[-1], output)
     finally:
         Path(concat_file).unlink(missing_ok=True)
@@ -115,17 +129,14 @@ def concat_clips(paths: list[Path], output: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Demo movie via h3 CLI")
-    parser.add_argument("--host", default="192.168.1.123",
-                        help="SSH host with h3 and GPU (default: 192.168.1.123)")
+    parser.add_argument("--host", default="192.168.1.123", help="SSH host with h3 and GPU (default: 192.168.1.123)")
     parser.add_argument("--output", default="demo_movie.mp4")
-    parser.add_argument("--preset", default="balanced",
-                        choices=["draft", "fast", "balanced", "high", "best"])
+    parser.add_argument("--preset", default="balanced", choices=["draft", "fast", "balanced", "high", "best"])
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--shots", type=int, default=0,
-                        help="Generate only the first N shots (0=all)")
+    parser.add_argument("--shots", type=int, default=0, help="Generate only the first N shots (0=all)")
     args = parser.parse_args()
 
-    shots = DEMO_SHOTS[:args.shots] if args.shots > 0 else DEMO_SHOTS
+    shots = DEMO_SHOTS[: args.shots] if args.shots > 0 else DEMO_SHOTS
 
     print("ArcReel Demo Movie Generator (h3 CLI mode)")
     print(f"  Host: {args.host}")
@@ -135,8 +146,10 @@ def main() -> None:
 
     # Verify h3 is reachable
     check = subprocess.run(
-        ["ssh", args.host, "~/.local/bin/h3 --version"],
-        capture_output=True, text=True, timeout=10,
+        ["ssh", args.host, "~/.local/bin/h3 --version"],  # noqa: S607
+        capture_output=True,
+        text=True,
+        timeout=10,
     )
     if check.returncode != 0:
         print(f"  Cannot reach h3 on {args.host}")
@@ -162,12 +175,13 @@ def main() -> None:
         concat_clips(clip_paths, output)
     elif clip_paths:
         import shutil
+
         shutil.copy2(clip_paths[0], output)
 
     total_time = time.time() - total_start
     print(f"\nDemo movie: {output}")
     print(f"Size: {output.stat().st_size / 1024:.0f} KiB")
-    print(f"Total time: {total_time:.0f}s ({total_time/60:.1f} min)")
+    print(f"Total time: {total_time:.0f}s ({total_time / 60:.1f} min)")
     print("NOTE: human must watch for quality verification")
 
 
