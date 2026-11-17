@@ -11,6 +11,7 @@ import shlex
 from dataclasses import dataclass
 from typing import ClassVar
 
+from arcreel_catalog_core import CatalogEntry
 from arcreel_market_core.video_backend_contract import (
     ReferenceAudioMode,
     VideoAudioMode,
@@ -48,6 +49,10 @@ class H3LocalVideoBackend:
         reference_audio_mode=ReferenceAudioMode.NONE,
         max_reference_audio_count=0,
     )
+
+    @staticmethod
+    def video_capabilities_for_model(model: str, entry: CatalogEntry | None = None) -> VideoCapabilities:
+        return H3LocalVideoBackend._CAPABILITIES
 
     @property
     def name(self) -> str:
