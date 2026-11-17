@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
-"""Demo: generate a movie through the h3 serve API.
+"""Demo: generate a movie using the h3 CLI command via SSH.
 
-Uses the same MiniMax H3 submit/poll protocol that ArcReel's
-declarative endpoint uses, proving the integration path works.
+Runs `h3 generate` on the AMD GPU host for each shot, downloads
+the output clips, and assembles them into a demo movie with ffmpeg.
 
 Usage:
-    python demo_h3.py                              # default: http://192.168.1.123:8321
-    python demo_h3.py --api http://localhost:8321   # local
-    python demo_h3.py --reuse-existing              # skip generation, use existing clips
+    python demo_h3.py                                  # generate all shots
+    python demo_h3.py --host 192.168.1.123             # custom SSH host
+    python demo_h3.py --preset draft                   # fast preview
+    python demo_h3.py --shots 1                        # generate only shot 1
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import subprocess
 import sys
 import time
-import urllib.request
-import urllib.error
 from pathlib import Path
 
 DEMO_SHOTS = [
@@ -49,75 +47,51 @@ DEMO_SHOTS = [
 ]
 
 
-def api_post(base: str, path: str, body: dict) -> dict:
-    data = json.dumps(body).encode()
-    req = urllib.request.Request(
-        f"{base}{path}",
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read())
+def h3_generate(host: str, shot: dict, preset: str, seed: int) -> str:
+    """Run `h3 generate` on the remote host via SSH, return remote output path."""
+    work = f"arcreel_{shot['id']}"
+    remote_output = f"/data/h3/runs/{work}/output.mp4"
 
-
-def api_get(base: str, path: str) -> dict:
-    req = urllib.request.Request(f"{base}{path}", method="GET")
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read())
-
-
-def download(url: str, dest: Path) -> None:
-    with urllib.request.urlopen(url, timeout=600) as resp:
-        dest.write_bytes(resp.read())
-
-
-def submit_and_poll(base: str, shot: dict) -> str:
-    """Submit a shot via the MiniMax H3 API and poll until done."""
     print(f"\n{'='*60}")
-    print(f"  Submitting {shot['id']}")
+    print(f"  Generating {shot['id']} via h3 CLI on {host}")
+    print(f"  preset={preset}  seed={seed}  work={work}")
     print(f"{'='*60}")
 
-    body = {
-        "model": "MiniMax-H3",
-        "content": [{"type": "text", "text": shot["prompt"]}],
-        "resolution": "768P",
-        "duration": 5,
-    }
-
-    result = api_post(base, "/v2/video_generation", body)
-    task_id = result["task_id"]
-    print(f"  task_id: {task_id}")
+    import shlex
+    remote_cmd = (
+        f"H3_SNAPSHOT=/data/h3/bf16/snapshot "
+        f"HF_HOME=/data/h3/hf "
+        f"TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1 "
+        f"~/.local/bin/h3 generate {preset} "
+        f"--work {shlex.quote(work)} "
+        f"--seed {seed} "
+        f"-p {shlex.quote(shot['prompt'])}"
+    )
+    cmd = ["ssh", host, remote_cmd]
 
     start = time.time()
-    while True:
-        time.sleep(30)
-        elapsed = time.time() - start
-        try:
-            status = api_get(base, f"/v2/query/video_generation/{task_id}")
-        except Exception as e:
-            print(f"  [{elapsed:.0f}s] poll error: {e}")
-            continue
+    result = subprocess.run(cmd, capture_output=False, timeout=3600)
+    elapsed = time.time() - start
 
-        task = status.get("task", {})
-        st = task.get("status", "unknown")
-        print(f"  [{elapsed:.0f}s] status: {st}")
+    if result.returncode != 0:
+        print(f"  FAILED (exit {result.returncode}) after {elapsed:.0f}s")
+        sys.exit(1)
 
-        if st == "succeeded":
-            video_url = task.get("content", {}).get("url", "")
-            print(f"  video: {video_url}")
-            return video_url
-        elif st == "failed":
-            err = task.get("error", "unknown")
-            print(f"  FAILED: {err}")
-            sys.exit(1)
-        elif elapsed > 3600:
-            print("  TIMEOUT after 1h")
-            sys.exit(1)
+    print(f"  Done in {elapsed:.0f}s")
+    return remote_output
 
 
-def concat_local(paths: list[Path], output: Path) -> None:
-    """Concatenate mp4 files using ffmpeg."""
+def download_clip(host: str, remote_path: str, local_path: Path) -> None:
+    """Download a clip from the remote host via scp."""
+    subprocess.run(
+        ["scp", f"{host}:{remote_path}", str(local_path)],
+        check=True,
+    )
+    print(f"  Downloaded: {local_path} ({local_path.stat().st_size / 1024:.0f} KiB)")
+
+
+def concat_clips(paths: list[Path], output: Path) -> None:
+    """Concatenate mp4 clips using ffmpeg."""
     import tempfile
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
@@ -140,68 +114,60 @@ def concat_local(paths: list[Path], output: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Demo movie via h3 serve API")
-    parser.add_argument("--api", default="http://192.168.1.123:8321",
-                        help="h3 serve base URL")
+    parser = argparse.ArgumentParser(description="Demo movie via h3 CLI")
+    parser.add_argument("--host", default="192.168.1.123",
+                        help="SSH host with h3 and GPU (default: 192.168.1.123)")
     parser.add_argument("--output", default="demo_movie.mp4")
-    parser.add_argument("--reuse-existing", action="store_true",
-                        help="Use existing clips from AMD host instead of generating")
-    parser.add_argument("--ssh-host", default="amd",
-                        help="SSH host for scp (when --reuse-existing)")
+    parser.add_argument("--preset", default="balanced",
+                        choices=["draft", "fast", "balanced", "high", "best"])
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--shots", type=int, default=0,
+                        help="Generate only the first N shots (0=all)")
     args = parser.parse_args()
 
-    print("H3 Demo Movie Generator (API mode)")
-    print(f"  API: {args.api}")
-    print(f"  Shots: {len(DEMO_SHOTS)}")
+    shots = DEMO_SHOTS[:args.shots] if args.shots > 0 else DEMO_SHOTS
+
+    print("ArcReel Demo Movie Generator (h3 CLI mode)")
+    print(f"  Host: {args.host}")
+    print(f"  Preset: {args.preset}")
+    print(f"  Shots: {len(shots)}")
     print(f"  Output: {args.output}")
 
-    # Check API health
-    try:
-        health = api_get(args.api, "/health")
-        print(f"  Health: {health}")
-    except Exception as e:
-        print(f"  Cannot reach API at {args.api}: {e}")
-        print("  Start h3 serve on the AMD host first:")
-        print("    ssh amd 'nohup ~/.local/bin/h3 serve > /tmp/h3serve.log 2>&1 &'")
+    # Verify h3 is reachable
+    check = subprocess.run(
+        ["ssh", args.host, "~/.local/bin/h3 --version"],
+        capture_output=True, text=True, timeout=10,
+    )
+    if check.returncode != 0:
+        print(f"  Cannot reach h3 on {args.host}")
         sys.exit(1)
+    print(f"  h3 version: {check.stdout.strip()}")
 
     clip_dir = Path("demo_clips")
     clip_dir.mkdir(exist_ok=True)
 
     clip_paths: list[Path] = []
+    total_start = time.time()
 
-    if args.reuse_existing:
-        # Reuse existing win12 output as both shots (same prompt)
-        existing = ["runs/win12/output.mp4", "runs/recbf/output.mp4"]
-        for i, shot in enumerate(DEMO_SHOTS):
-            clip = clip_dir / f"{shot['id']}.mp4"
-            src = existing[i % len(existing)]
-            subprocess.run(
-                ["scp", f"{args.ssh_host}:/data/h3/{src}", str(clip)],
-                check=True,
-            )
-            clip_paths.append(clip)
-            print(f"  Reused {src} as {shot['id']}")
-    else:
-        # Generate each shot through the API
-        for shot in DEMO_SHOTS:
-            video_url = submit_and_poll(args.api, shot)
-            clip = clip_dir / f"{shot['id']}.mp4"
-            print(f"  Downloading {clip.name}...")
-            download(video_url, clip)
-            clip_paths.append(clip)
-            print(f"  Saved: {clip}")
+    for i, shot in enumerate(shots):
+        remote_path = h3_generate(args.host, shot, args.preset, args.seed + i)
+        local_clip = clip_dir / f"{shot['id']}.mp4"
+        download_clip(args.host, remote_path, local_clip)
+        clip_paths.append(local_clip)
 
-    # Concatenate
+    # Assemble
     output = Path(args.output)
     if len(clip_paths) > 1:
-        concat_local(clip_paths, output)
+        print(f"\nAssembling {len(clip_paths)} clips...")
+        concat_clips(clip_paths, output)
     elif clip_paths:
         import shutil
         shutil.copy2(clip_paths[0], output)
 
+    total_time = time.time() - total_start
     print(f"\nDemo movie: {output}")
     print(f"Size: {output.stat().st_size / 1024:.0f} KiB")
+    print(f"Total time: {total_time:.0f}s ({total_time/60:.1f} min)")
     print("NOTE: human must watch for quality verification")
 
 
