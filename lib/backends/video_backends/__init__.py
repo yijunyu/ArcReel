@@ -10,7 +10,6 @@ from lib.backends.providers import (
     PROVIDER_ARK,
     PROVIDER_GEMINI,
     PROVIDER_GROK,
-    PROVIDER_H3_LOCAL,
     PROVIDER_NEWAPI,
     PROVIDER_OPENAI,
 )
@@ -20,7 +19,6 @@ __all__ = [
     "PROVIDER_ARK",
     "PROVIDER_GEMINI",
     "PROVIDER_GROK",
-    "PROVIDER_H3_LOCAL",
     "PROVIDER_NEWAPI",
     "PROVIDER_OPENAI",
     "ReferenceAudioMode",
@@ -108,8 +106,3 @@ from lib.backends.video_backends.agnes import AGNES_VIDEO_BACKENDS
 
 for _endpoint, _backend in AGNES_VIDEO_BACKENDS.items():
     register_backend(_endpoint, _backend)
-
-# H3 Local GPU — MiniMax H3 on a local/SSH-reachable AMD GPU via the h3 CLI
-from lib.backends.video_backends.h3_local import H3LocalVideoBackend
-
-register_backend(PROVIDER_H3_LOCAL, H3LocalVideoBackend)

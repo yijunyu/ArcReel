@@ -1854,8 +1854,6 @@ def _infer_endpoint_by_name(model_id: str, discovery_format: str) -> str:
     if canonical in _MINIMAX_S2V_MODELS:
         return "minimax-s2v-01"
     if "minimax-h3" in lowered:
-        if "local" in lowered:
-            return "minimax-h3-local"
         return "minimax-h3"
     if "image-01" in lowered:
         return "minimax-image"
