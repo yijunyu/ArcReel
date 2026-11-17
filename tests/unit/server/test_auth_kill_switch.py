@@ -9,6 +9,7 @@ import pytest
 from fastapi import HTTPException
 
 import server.auth as auth_module
+from lib.config.env_keys import PROVIDER_SECRET_KEYS
 
 
 @pytest.fixture(autouse=True)
@@ -149,16 +150,20 @@ class TestLoginRouteKillSwitch:
 
         from server.app import app
 
-        env = {"AUTH_ENABLED": "false"}
-        with patch.dict(os.environ, env), TestClient(app) as client:
-            response = client.post(
-                "/api/v1/auth/token",
-                data={"username": "anyone", "password": "wrong"},
-            )
-        assert response.status_code == 200
-        body = response.json()
-        assert body["token_type"] == "bearer"
-        assert body["access_token"]
+        saved = {k: os.environ.pop(k) for k in PROVIDER_SECRET_KEYS if k in os.environ}
+        try:
+            env = {"AUTH_ENABLED": "false"}
+            with patch.dict(os.environ, env), TestClient(app) as client:
+                response = client.post(
+                    "/api/v1/auth/token",
+                    data={"username": "anyone", "password": "wrong"},
+                )
+            assert response.status_code == 200
+            body = response.json()
+            assert body["token_type"] == "bearer"
+            assert body["access_token"]
+        finally:
+            os.environ.update(saved)
 
 
 class TestWarnIfAuthDisabled:

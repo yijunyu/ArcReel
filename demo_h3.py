@@ -85,7 +85,7 @@ def h3_generate(host: str, shot: dict, preset: str, seed: int) -> str:
 def download_clip(host: str, remote_path: str, local_path: Path) -> None:
     """Download a clip from the remote host via scp."""
     subprocess.run(
-        ["scp", f"{host}:{remote_path}", str(local_path)],  # noqa: S607
+        ["scp", f"{host}:{remote_path}", str(local_path)],  # noqa: S607 -- scp 是 CLI demo 的文件传输工具，路径由调用方控制
         check=True,
     )
     print(f"  Downloaded: {local_path} ({local_path.stat().st_size / 1024:.0f} KiB)")
@@ -102,7 +102,7 @@ def concat_clips(paths: list[Path], output: Path) -> None:
 
     try:
         subprocess.run(
-            [  # noqa: S607
+            [  # noqa: S607 -- ffmpeg 是本地拼接工具，仅操作本地文件
                 "ffmpeg",
                 "-y",
                 "-f",
@@ -146,7 +146,7 @@ def main() -> None:
 
     # Verify h3 is reachable
     check = subprocess.run(
-        ["ssh", args.host, "~/.local/bin/h3 --version"],  # noqa: S607
+        ["ssh", args.host, "~/.local/bin/h3 --version"],  # noqa: S607 -- ssh 调用远程 h3 CLI，主机由 --host 参数控制
         capture_output=True,
         text=True,
         timeout=10,

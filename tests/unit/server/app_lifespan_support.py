@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import lib.db
 import server.app as app_module
+from lib.config.env_keys import PROVIDER_SECRET_KEYS
 from server.routers import assistant as assistant_router
 
 
@@ -25,6 +26,8 @@ class _FakeWorker:
 
 def stub_lifespan_dependencies(monkeypatch) -> _FakeWorker:
     """lifespan 里与被测步骤无关的依赖（建库、鉴权口令、生成 worker、助手服务）换成空实现，返回 worker 替身。"""
+    for key in PROVIDER_SECRET_KEYS:
+        monkeypatch.delenv(key, raising=False)
     worker = _FakeWorker()
     monkeypatch.setattr(app_module, "create_generation_worker", lambda: worker)
     monkeypatch.setattr(app_module, "ensure_auth_password", lambda: "test")

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from lib.config.env_keys import PROVIDER_SECRET_KEYS
 from lib.project.project_manager import ProjectManager
 
 
@@ -16,6 +17,8 @@ async def test_lifespan_invokes_session_store_migration(tmp_path, monkeypatch):
     # (worker starts, http client, project event service). Patch them all out
     # and only verify our new hook is wired in.
     # 数据根指向空的 tmp 目录：源文编码迁移照跑，遍历不到项目即返回空汇总。
+    for key in PROVIDER_SECRET_KEYS:
+        monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("ARCREEL_DATA_DIR", str(tmp_path))
     monkeypatch.setattr("lib.project.project_manager.get_project_manager", lambda: ProjectManager(tmp_path))
     with (

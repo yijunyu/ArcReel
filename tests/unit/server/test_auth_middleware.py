@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import server.auth as auth_module
+from lib.config.env_keys import PROVIDER_SECRET_KEYS
 
 
 @pytest.fixture(autouse=True)
@@ -18,6 +19,7 @@ def auth_env():
     """为所有测试设置固定的认证环境变量，测试结束后清理缓存。"""
     auth_module._cached_token_secret = None
     auth_module._cached_password_hash = None
+    removed = {k: os.environ.pop(k) for k in PROVIDER_SECRET_KEYS if k in os.environ}
     with patch.dict(
         os.environ,
         {
@@ -27,6 +29,7 @@ def auth_env():
         },
     ):
         yield
+    os.environ.update(removed)
     auth_module._cached_token_secret = None
     auth_module._cached_password_hash = None
 
