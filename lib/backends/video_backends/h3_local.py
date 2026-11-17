@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from arcreel_market_core.video_backend_contract import (
+    ReferenceAudioMode,
+    VideoAudioMode,
     VideoCapabilities,
     VideoGenerationRequest,
     VideoGenerationResult,
@@ -25,7 +27,13 @@ _PROVIDER = "h3-local"
 
 @dataclass
 class H3LocalVideoBackend:
-    """通过 SSH 调用远程 h3 CLI 的视频生成后端。"""
+    """通过 SSH 调用远程 h3 CLI 的视频生成后端。
+
+    MiniMax H3 Flex 本地 GPU 推理，三条工作流：
+    - t2va: 纯文生视频+音频
+    - fl2va: 首帧图生视频+音频 (``--image``)
+    - ref2va: 参考图生视频+音频 (``--ref``, 需 transformer_ref 权重)
+    """
 
     host: str = "192.168.1.123"
     h3_bin: str = "~/.local/bin/h3"
@@ -33,10 +41,13 @@ class H3LocalVideoBackend:
     env: dict[str, str] | None = None
 
     _CAPABILITIES: ClassVar[VideoCapabilities] = VideoCapabilities(
-        audio_track="joint",
-        max_duration_seconds=5,
-        resolutions=frozenset({"1344x768"}),
-        aspect_ratios=frozenset({"16:9"}),
+        text_to_video=True,
+        first_frame=True,
+        last_frame=False,
+        max_reference_images=1,
+        audio_track=VideoAudioMode.ALWAYS_ON,
+        reference_audio_mode=ReferenceAudioMode.NONE,
+        max_reference_audio_count=0,
     )
 
     @property
@@ -68,6 +79,9 @@ class H3LocalVideoBackend:
         ]
         if request.start_image:
             cmd_parts.extend(["--image", shlex.quote(str(request.start_image))])
+        if request.reference_images:
+            for ref in request.reference_images:
+                cmd_parts.extend(["--ref", shlex.quote(str(ref))])
         if request.seed is not None:
             cmd_parts.extend(["--seed", str(request.seed)])
 

@@ -106,3 +106,8 @@ from lib.backends.video_backends.agnes import AGNES_VIDEO_BACKENDS
 
 for _endpoint, _backend in AGNES_VIDEO_BACKENDS.items():
     register_backend(_endpoint, _backend)
+
+# H3 Local — MiniMax H3 Flex on local AMD GPU via SSH + h3 CLI
+from lib.backends.video_backends.h3_local import H3LocalVideoBackend
+
+register_backend("h3-local", H3LocalVideoBackend)
