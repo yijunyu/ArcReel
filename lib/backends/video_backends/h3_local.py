@@ -9,8 +9,7 @@ import asyncio
 import logging
 import shlex
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from arcreel_market_core.video_backend_contract import (
     ReferenceAudioMode,
@@ -73,9 +72,13 @@ class H3LocalVideoBackend:
         env_str = " ".join(f"{k}={v}" for k, v in env_parts.items())
 
         cmd_parts = [
-            self.h3_bin, "generate", self.preset,
-            "--work", shlex.quote(work),
-            "-p", shlex.quote(request.prompt),
+            self.h3_bin,
+            "generate",
+            self.preset,
+            "--work",
+            shlex.quote(work),
+            "-p",
+            shlex.quote(request.prompt),
         ]
         if request.start_image:
             cmd_parts.extend(["--image", shlex.quote(str(request.start_image))])
@@ -100,7 +103,9 @@ class H3LocalVideoBackend:
 
         remote_output = f"/data/h3/runs/{work}/output.mp4"
         scp_proc = await asyncio.create_subprocess_exec(
-            "scp", f"{self.host}:{remote_output}", str(request.output_path),
+            "scp",
+            f"{self.host}:{remote_output}",
+            str(request.output_path),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
